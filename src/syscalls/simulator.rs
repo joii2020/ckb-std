@@ -258,17 +258,7 @@ pub fn exec_cell(
     Err(SysError::Unknown(ret as u64))
 }
 
-#[repr(C)]
-pub struct SpawnArgs {
-    /// argc contains the number of arguments passed to the program.
-    pub argc: u64,
-    /// argv is a one-dimensional array of strings.
-    pub argv: *const *const i8,
-    /// a pointer used to save the process_id of the child process.
-    pub process_id: *mut u64,
-    /// an array representing the file descriptors passed to the child process. It must end with zero.
-    pub inherited_fds: *const u64,
-}
+pub use sim::SpawnArgs;
 
 pub fn spawn(
     index: usize,
@@ -277,42 +267,110 @@ pub fn spawn(
     bounds: usize,
     spgs: &mut SpawnArgs,
 ) -> Result<u64, SysError> {
-    panic!("This is not supported in the native-simulator!");
+    let ret = sim::ckb_spawn(
+        index as usize,
+        source as usize,
+        place as usize,
+        bounds as usize,
+        spgs as *mut SpawnArgs,
+    ) as u64;
+    match ret {
+        0 => Ok(unsafe { *spgs.process_id }),
+        1 => Err(SysError::IndexOutOfBound),
+        2 => Err(SysError::ItemMissing),
+        3 => Err(SysError::Encoding),
+        6 => Err(SysError::InvalidFd),
+        8 => Err(SysError::MaxVmsSpawned),
+        x => Err(SysError::Unknown(x)),
+    }
 }
 
 pub fn wait(pid: u64) -> Result<i8, SysError> {
-    panic!("This is not supported in the native-simulator!");
+    let mut code: i8 = 0;
+    let ret = sim::ckb_wait(pid, (&mut code) as *mut i8) as u64;
+    match ret {
+        0 => Ok(code as i8),
+        5 => Err(SysError::WaitFailure),
+        x => Err(SysError::Unknown(x)),
+    }
 }
 
 pub fn process_id() -> u64 {
-    panic!("This is not supported in the native-simulator!");
+    sim::ckb_process_id()
 }
 
 pub fn pipe() -> Result<(u64, u64), SysError> {
-    panic!("This is not supported in the native-simulator!");
+    let mut fds: [u64; 2] = [0, 0];
+    let ret = sim::ckb_pipe(&mut fds as *mut u64) as u64;
+    match ret {
+        0 => Ok((fds[0], fds[1])),
+        9 => Err(SysError::MaxFdsCreated),
+        x => Err(SysError::Unknown(x)),
+    }
 }
 
 pub fn read(fd: u64, buffer: &mut [u8]) -> Result<usize, SysError> {
-    panic!("This is not supported in the native-simulator!");
+    let mut len = buffer.len();
+    let ret = sim::ckb_read(
+        fd,
+        buffer.as_mut_ptr() as *mut c_void,
+        &mut len as *mut usize,
+    ) as u64;
+    match ret {
+        0 => Ok(len),
+        1 => Err(SysError::IndexOutOfBound),
+        6 => Err(SysError::InvalidFd),
+        7 => Err(SysError::OtherEndClosed),
+        x => Err(SysError::Unknown(x)),
+    }
 }
 
 pub fn write(fd: u64, buffer: &[u8]) -> Result<usize, SysError> {
-    panic!("This is not supported in the native-simulator!");
+    let mut l = buffer.len();
+    let ret = sim::ckb_write(fd, buffer.as_ptr() as *mut c_void, &mut l as *mut usize) as u64;
+    match ret {
+        0 => Ok(l as usize),
+        1 => Err(SysError::IndexOutOfBound),
+        6 => Err(SysError::InvalidFd),
+        7 => Err(SysError::OtherEndClosed),
+        x => Err(SysError::Unknown(x)),
+    }
 }
 
 pub fn inherited_fds(fds: &mut [u64]) {
-    panic!("This is not supported in the native-simulator!");
+    let mut l = fds.len();
+    sim::ckb_inherited_fds(fds.as_mut_ptr(), &mut l as *mut usize);
 }
 
 pub fn close(fd: u64) -> Result<(), SysError> {
-    panic!("This is not supported in the native-simulator!");
+    let ret = sim::ckb_close(fd) as u64;
+    match ret {
+        0 => Ok(()),
+        6 => Err(SysError::InvalidFd),
+        x => Err(SysError::Unknown(x)),
+    }
 }
 
 pub fn load_block_extension(
-    buf: &mut [u8],
+    buffer: &mut [u8],
     offset: usize,
     index: usize,
     source: Source,
 ) -> Result<usize, SysError> {
-    panic!("This is not supported in the native-simulator!");
+    let mut l: u64 = buffer.len() as u64;
+    let ret = sim::ckb_load_block_extension(
+        buffer.as_mut_ptr() as *mut c_void,
+        &mut l as *mut u64,
+        offset,
+        index,
+        source as usize,
+    ) as u64;
+
+    match ret {
+        0 => Ok(l as usize),
+        1 => Err(SysError::IndexOutOfBound),
+        6 => Err(SysError::InvalidFd),
+        7 => Err(SysError::OtherEndClosed),
+        x => Err(SysError::Unknown(x)),
+    }
 }
