@@ -79,5 +79,10 @@ macro_rules! entry_simulator {
             $crate::env::set_argv(argv);
             $main()
         }
+
+        #[no_mangle]
+        unsafe extern "C" fn __update_spawn_info(ptr: *mut core::ffi::c_void, pid: u64) {
+            ckb_std::update_spawn_info(ptr, pid)
+        }
     };
 }

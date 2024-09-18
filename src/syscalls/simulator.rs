@@ -216,8 +216,8 @@ pub fn load_cell_code(
 
 pub fn vm_version() -> Result<u64, SysError> {
     let ret = sim::ckb_vm_version();
-    if ret == 1 {
-        Ok(1)
+    if ret == 1 || ret == 2 {
+        Ok(ret as u64)
     } else {
         Err(SysError::Unknown(ret as i64 as u64))
     }

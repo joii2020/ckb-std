@@ -41,3 +41,5 @@ pub mod dummy_atomic;
 pub mod logger;
 #[cfg(feature = "log")]
 pub use log;
+#[cfg(feature = "native-simulator")]
+pub use ckb_x64_simulator::update_spawn_info;
